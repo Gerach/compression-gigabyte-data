@@ -5,27 +5,6 @@ import operator
 import math
 
 
-def calculate_entropy(probabilities):
-    h = 0
-    probability_freq = {}
-
-    for letter in probabilities:
-        probability = probabilities[letter]
-
-        if probability in probability_freq:
-            probability_freq[probability] += 1
-        else:
-            probability_freq[probability] = 1
-
-    for probability in probability_freq:
-        frequency = probability_freq[probability]
-        logarithm = math.log(1 / probability, 2)
-        partial_h = frequency * probability * logarithm
-        h += partial_h
-
-    return h
-
-
 class Entropy:
 
     alphabet = ['a', 'ą', 'b', 'c', 'č', 'd', 'e', 'ę', 'ė', 'f', 'g', 'h', 'i', 'į', 'y', 'j', 'k', 'l', 'm', 'n', 'o',
@@ -63,7 +42,7 @@ class Entropy:
         probabilities = {}
 
         for letter in self.alphabet:
-            probabilities[letter] = round(self.frequencies[letter] / self.total_letters, 3)
+            probabilities[letter] = self.frequencies[letter] / self.total_letters
 
         return probabilities
 
@@ -72,12 +51,33 @@ class Entropy:
 
         return sorted(probabilities.items(), key=operator.itemgetter(1))
 
+    @staticmethod
+    def calculate_entropy(probabilities):
+        h = 0
+        probability_freq = {}
+
+        for letter in probabilities:
+            probability = probabilities[letter]
+
+            if probability in probability_freq:
+                probability_freq[probability] += 1
+            else:
+                probability_freq[probability] = 1
+
+        for probability in probability_freq:
+            frequency = probability_freq[probability]
+            logarithm = math.log(1 / probability, 2)
+            partial_h = frequency * probability * logarithm
+            h += partial_h
+
+        return h
+
 
 def main():
     entropy = Entropy()
     entropy.fill_frequencies()
     probabilities = entropy.get_probabilities()
-    print('Entropy without probability distribution: {}'.format(calculate_entropy(probabilities)))
+    print('Entropy without probability distribution: {}'.format(entropy.calculate_entropy(probabilities)))
     print('Entropy with probability distribution: {}'.format(math.log(len(entropy.alphabet), 2)))
 
 
