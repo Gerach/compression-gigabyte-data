@@ -1,78 +1,80 @@
 #!/usr/bin/python3
+import operator
 
 from Entropy import Entropy
+from ExtractFromPdf import ExtractFromPdf
+
+
+class Node:
+    def __init__(self, created, probability, has_parent, letter=None, parent='', is_left=None):
+        self.letter = letter
+        self.is_left = is_left
+        self.probability = probability
+        self.has_parent = has_parent
+        self.created = created
+        self.parent = parent
 
 
 class Huffman:
-    def __init__(self):
-        entropy = Entropy()
-        entropy.fill_frequencies()
+    def __init__(self, frequencies, words):
+        entropy = Entropy(frequencies, words)
         probabilities = entropy.get_probabilities_sorted()
+        self.words = words
         self.graph = []
-        self.created = 0
+        self.creation_time = 0
 
-        while probabilities:
-            try:
-                # parent node init
-                parent_node = self.create_node(self.created)
+        for word in probabilities:
+            letter = word[0]
+            probability = word[1]
+            node = Node(0, probability, False, letter)
+            self.graph.append(node)
 
-                # leaf 1 init
-                letter1 = probabilities[0][0]
-                probability1 = probabilities[0][1]
-                node1 = self.create_node(self.created, True, letter1, probability1, parent_node)
-                probabilities.remove(probabilities[0])
+    def create_node(self, probability, has_parent, letter=None, parent=None, is_left=None) -> Node:
+        self.creation_time += 1
 
-                # leaf 2 init
-                letter2 = probabilities[0][0]
-                probability2 = probabilities[0][1]
-                node2 = self.create_node(self.created, False, letter2, probability2, parent_node)
-                probabilities.remove(probabilities[0])
+        return Node(self.creation_time, probability, has_parent, letter, parent, is_left)
 
-                # graph population
-                parent_node.probability = probability1 + probability2
-                self.graph.append(parent_node)
-                self.graph.append(node1)
-                self.graph.append(node2)
-            except IndexError:
-                letter = probabilities[0][0]
-                probability = probabilities[0][1]
-                node = Node(0, True, letter, probability)
-                probabilities.remove(probabilities[0])
-                self.graph.append(node)
-                # TODO: add additional logic when there are not even number of letters
-
-    def create_node(self, created, is_left=None, letter=None, probability=None, parent=None):
-        self.created += 1
-
-        return Node(created, is_left, letter, probability, parent)
-
-    def connect_tree(self):
-        nodes_without_parents = []
+    def is_graph_joined(self) -> bool:
+        nodes_without_parents = 0
 
         for node in self.graph:
             if not node.parent:
-                nodes_without_parents.append(node)
+                nodes_without_parents += 1
+            if nodes_without_parents > 1:
+                return False
 
-        if len(nodes_without_parents) < 2:
-            return
+        return True
 
-        count = 0
-        for _ in nodes_without_parents[::2]:
-            parent_node = self.create_node(self.created)
-            node1 = nodes_without_parents[count]
-            node2 = nodes_without_parents[count + 1]
-            node1.parent = parent_node
-            node1.is_left = True
-            node2.parent = parent_node
-            node2.is_left = False
-            parent_node.probability = node1.probability + node2.probability
+    def sort_nodes(self):
+        self.graph.sort(key=operator.attrgetter('has_parent', 'probability', 'created'))
+
+    def connect_all_nodes(self):
+        while not self.is_graph_joined():
+            node1 = self.graph[0]
+            node2 = self.graph[1]
+
+            parent_probability = node1.probability + node2.probability
+            parent_node = self.create_node(parent_probability, False)
             self.graph.append(parent_node)
 
-            count += 2
+            node1.parent = parent_node
+            node2.parent = parent_node
+            node1.has_parent = True
+            node2.has_parent = True
 
-        self.connect_tree()
+            if node1.probability > node2.probability:
+                node1.is_left = True
+                node2.is_left = False
+            else:
+                node1.is_left = False
+                node2.is_left = True
 
-    def get_code(self, node, code=''):
+            self.sort_nodes()
+
+        for i in self.graph:
+            print('{} {} {} {}'.format(i.letter, i.probability, i.has_parent, i.created))
+
+    def get_code(self, node, code='') -> str:
         if node.parent:
             if node.is_left:
                 code += '0'
@@ -83,30 +85,32 @@ class Huffman:
 
         return code
 
-    def get_letter_code(self, letter):
+    def get_letter_code(self, letter) -> str:
         for node in self.graph:
             if node.letter == letter:
-                return self.get_code(node)
+                return self.get_code(node)[::-1]
 
-    def print_all_codes(self):
-        for letter in Entropy.alphabet:
-            code = self.get_letter_code(letter)
-            print('{} - {}'.format(letter, code))
+    def get_all_codes(self) -> dict:
+        codes = {}
 
+        for word in self.words:
+            code = self.get_letter_code(word)
+            codes[word] = code
 
-class Node:
-    def __init__(self, created, is_left=None, letter=None, probability=None, parent=None):
-        self.letter = letter
-        self.is_left = is_left
-        self.probability = probability
-        self.created = created
-        self.parent = parent
+        return codes
 
 
 def main():
-    huffman = Huffman()
-    huffman.connect_tree()
-    huffman.print_all_codes()
+    extractor = ExtractFromPdf('Neris.pdf')
+    dictionary = extractor.get_letter_dictionary()
+    alphabet = extractor.get_alphabet()
+
+    huffman = Huffman(dictionary, alphabet)
+    huffman.connect_all_nodes()
+    codes = huffman.get_all_codes()
+    codes = sorted(codes.items(), key=operator.itemgetter(1))
+    for code in codes:
+        print(code)
 
 
 if __name__ == "__main__":
