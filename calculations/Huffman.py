@@ -71,9 +71,6 @@ class Huffman:
 
             self.sort_nodes()
 
-        for i in self.graph:
-            print('{} {} {} {}'.format(i.letter, i.probability, i.has_parent, i.created))
-
     def get_code(self, node, code='') -> str:
         if node.parent:
             if node.is_left:
