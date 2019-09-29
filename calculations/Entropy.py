@@ -60,7 +60,7 @@ def main():
 
     entropy = Entropy(dictionary, alphabet)
     probabilities = entropy.get_probabilities()
-    print(probabilities)
+    # print(probabilities)
     print('Entropy with probability distribution: {}'.format(entropy.calculate_entropy(probabilities)))
     print('Entropy without probability distribution: {}'.format(math.log(len(alphabet), 2)))
 

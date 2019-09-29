@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+
 import operator
 
 from Entropy import Entropy
@@ -19,6 +20,7 @@ class Huffman:
     def __init__(self, frequencies, words):
         entropy = Entropy(frequencies, words)
         probabilities = entropy.get_probabilities_sorted()
+        self.frequencies = frequencies
         self.words = words
         self.graph = []
         self.creation_time = 0
@@ -96,6 +98,17 @@ class Huffman:
 
         return codes
 
+    def calculate_average(self, codes) -> float:
+        total_words = sum(self.frequencies.values())
+        total_bits = 0
+
+        for code in codes:
+            bits_per_word = len(code[1])
+            words_per_code = self.frequencies[code[0]]
+            total_bits += bits_per_word * words_per_code
+
+        return total_bits / total_words
+
 
 def main():
     extractor = ExtractFromPdf('Neris.pdf')
@@ -107,7 +120,9 @@ def main():
     codes = huffman.get_all_codes()
     codes = sorted(codes.items(), key=operator.itemgetter(1))
     for code in codes:
-        print(code)
+        print('{} {}'.format(code, dictionary[code[0]]))
+    avg_bits = huffman.calculate_average(codes)
+    print('average bits: {}'.format(avg_bits))
 
 
 if __name__ == "__main__":

@@ -9,26 +9,29 @@ class ExtractFromPdf:
         lt_iso_code = 'iso-8859-4'
         encoded_text = textract.process(path_to_file, lt_iso_code)
         self.text = encoded_text.decode(lt_iso_code)
+        self.alphabet = []
         # self.text = re.sub(r'\xad\s', '', self.text)
         # self.text = re.sub(r'\d', '', self.text)
         # self.text = self.text.strip()
         # self.text = self.text.lower()
 
-    def get_words(self) -> list:
-        return self.text.split()
+    def get_words(self) -> str:
+        return self.text
 
     def get_letters(self) -> list:
         return list(self.text)
 
-    def get_word_dictionary(self) -> dict:
+    def get_word_dictionary(self, symbols=2) -> dict:
         words = self.get_words()
         dictionary = {}
 
         while words:
-            word = words[0]
+            word = words[0:symbols]
             word_count = words.count(word)
-            words = list(filter(lambda x: x != word, words))
+            words = words.replace(word, '')
             dictionary[word] = word_count
+
+        self.alphabet = list(dictionary.keys())
 
         return dictionary
 
@@ -42,23 +45,20 @@ class ExtractFromPdf:
             letters = list(filter(lambda x: x != letter, letters))
             dictionary[letter] = letter_count
 
+        self.alphabet = list(dictionary.keys())
+
         return dictionary
 
     def get_alphabet(self) -> list:
-        letters = self.get_letters()
-        alphabet = []
-
-        while letters:
-            alphabet.append(letters[0])
-            letters = list(filter(lambda x: x != letters[0], letters))
-
-        return alphabet
+        return self.alphabet
 
 
 def main():
     extractor = ExtractFromPdf('Neris.pdf')
-    letters = extractor.get_letter_dictionary()
-    print(letters)
+    words = extractor.get_word_dictionary()
+    # letters = extractor.get_letter_dictionary()
+    # print(letters)
+    print(words)
 
 
 if __name__ == "__main__":
