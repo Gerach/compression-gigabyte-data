@@ -21,6 +21,9 @@ class ExtractFromPdf:
     def get_letters(self) -> list:
         return list(self.text)
 
+    def get_length(self) -> int:
+        return len(self.text)
+
     def get_word_dictionary(self, symbols=2) -> dict:
         words = self.get_words()
         dictionary = {}
