@@ -60,7 +60,9 @@ def main():
 
     entropy = Entropy(dictionary, alphabet)
     probabilities = entropy.get_probabilities()
-    # print(probabilities)
+    sorted_probabilities = entropy.get_probabilities_sorted()
+    for probability in sorted_probabilities:
+        print('{}&{}'.format(probability[0], round(probability[1] * 100, 4)))
     print('Entropy with probability distribution: {}'.format(entropy.calculate_entropy(probabilities)))
     print('Entropy without probability distribution: {}'.format(math.log(len(alphabet), 2)))
 

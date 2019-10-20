@@ -100,14 +100,16 @@ class Huffman:
 
     def calculate_average(self, codes) -> float:
         total_words = sum(self.frequencies.values())
+        total_code_size = 0
         total_bits = 0
 
         for code in codes:
             bits_per_word = len(code[1])
+            total_code_size += 8 + bits_per_word
             words_per_code = self.frequencies[code[0]]
             total_bits += bits_per_word * words_per_code
 
-        return total_bits / total_words
+        return (total_bits + total_code_size) / total_words
 
 
 def main():
