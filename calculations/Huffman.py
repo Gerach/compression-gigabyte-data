@@ -52,24 +52,18 @@ class Huffman:
 
     def connect_all_nodes(self):
         while not self.is_graph_joined():
-            node1 = self.graph[0]
-            node2 = self.graph[1]
-
+            node1, node2 = self.graph[0], self.graph[1]
             parent_probability = node1.probability + node2.probability
             parent_node = self.create_node(parent_probability, False)
             self.graph.append(parent_node)
 
-            node1.parent = parent_node
-            node2.parent = parent_node
-            node1.has_parent = True
-            node2.has_parent = True
+            node1.parent, node2.parent = parent_node, parent_node
+            node1.has_parent, node2.has_parent = True, True
 
             if node1.probability > node2.probability:
-                node1.is_left = True
-                node2.is_left = False
+                node1.is_left, node2.is_left = True, False
             else:
-                node1.is_left = False
-                node2.is_left = True
+                node1.is_left, node2.is_left = False, True
 
             self.sort_nodes()
 
@@ -98,18 +92,18 @@ class Huffman:
 
         return codes
 
-    def calculate_average(self, codes) -> float:
+    def calculate_average(self, codes, letters_per_code) -> float:
         total_words = sum(self.frequencies.values())
-        total_code_size = 0
+        total_coding_size = 0
         total_bits = 0
 
         for code in codes:
-            bits_per_word = len(code[1])
-            total_code_size += 8 + bits_per_word
-            words_per_code = self.frequencies[code[0]]
-            total_bits += bits_per_word * words_per_code
+            bits_per_encoded_word = len(code[1])
+            total_coding_size += (8 * letters_per_code) + bits_per_encoded_word
+            words_per_encoded_code = self.frequencies[code[0]]
+            total_bits += bits_per_encoded_word * words_per_encoded_code
 
-        return (total_bits + total_code_size) / total_words
+        return (total_bits + total_coding_size + 8) / total_words
 
 
 def main():
@@ -123,7 +117,7 @@ def main():
     codes = sorted(codes.items(), key=operator.itemgetter(1))
     for code in codes:
         print('{} {}'.format(code, dictionary[code[0]]))
-    avg_bits = huffman.calculate_average(codes)
+    avg_bits = huffman.calculate_average(codes, 1)
     print('average bits: {}'.format(avg_bits))
 
 

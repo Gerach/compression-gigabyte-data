@@ -10,6 +10,7 @@ from ExtractFromPdf import ExtractFromPdf
 def calc_numerator(message) -> str:
     return re.sub(r'10*', '', message, 1)
 
+
 def calc_denominator(message) -> str:
     output = '0b1'
     bits = len(message) - 2
@@ -106,9 +107,9 @@ def main():
     text = extractor.get_words()
     coding = ArithmeticCoding()
     coding.calc_intervals(dictionary, total_symbols)
-    print(text)
     encoded_message = coding.encode(text, total_symbols)
     print(encoded_message)
+    print('average character size encoded: {} bits'.format(len(encoded_message) / total_symbols))
     decoded_message = coding.decode(encoded_message, total_symbols)
     print(decoded_message)
 

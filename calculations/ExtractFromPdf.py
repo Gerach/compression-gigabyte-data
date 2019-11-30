@@ -9,7 +9,7 @@ class ExtractFromPdf:
         lt_iso_code = 'iso-8859-4'
         encoded_text = textract.process(path_to_file, lt_iso_code)
         self.text = encoded_text.decode(lt_iso_code)
-        self.text = self.text[:1000]
+        self.text = self.text[:3000]
         self.alphabet = []
         # self.text = re.sub(r'\xad\s', '', self.text)
         # self.text = re.sub(r'\d', '', self.text)
