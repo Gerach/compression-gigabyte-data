@@ -2,13 +2,9 @@
 
 import operator
 import math
-import time
-from array import array
 
 from Entropy import Entropy
 from ExtractFromPdf import ExtractFromPdf
-
-import re
 
 
 class Node:
@@ -19,6 +15,79 @@ class Node:
         self.has_parent = has_parent
         self.created = created
         self.parent = parent
+
+
+def encode(extractor, codes) -> None:
+
+    with open('out.txt', 'w') as wf:
+        wf.write(extractor.text)
+
+    # save decoder to file
+    with open('out_encoded.bin', 'wb') as wf:
+        for letter in codes:
+            wf.write(letter.encode())
+
+            wf.write(codes[letter].encode())
+            wf.write('2'.encode())
+
+        wf.write(b'\xff\xff')
+
+    # save data to file
+    bits = '1'
+    for symbol in extractor.text:
+        bits += codes[symbol]
+
+    size_in_bytes = math.ceil(len(bits) / 8)
+
+    with open('out_encoded.bin', 'ab') as wf:
+        wf.write(int(bits, 2).to_bytes(size_in_bytes, 'little'))
+
+
+def decode() -> None:
+    decoder = {}
+    data = ''
+
+    with open('out_encoded.bin', 'rb') as rf:
+        lc = []
+        code = ''
+
+        while True:
+            byte = rf.read(1)
+
+            try:
+                decoded_byte = byte.decode()
+            except UnicodeDecodeError:
+                second_byte = rf.read(1)
+                if second_byte == b'\xff':
+                    break
+                decoded_byte = (byte + second_byte).decode()
+
+            if not lc:
+                lc.append(decoded_byte)
+            elif decoded_byte != '2':
+                code += decoded_byte
+            else:
+                lc.append(code)
+                code = ''
+
+            if len(lc) == 2:
+                decoder[lc[1]] = lc[0]
+                lc.clear()
+
+        data_in_bytes = rf.read()
+        bits = format(int.from_bytes(data_in_bytes, 'little'), 'b')[1:]
+
+    coded_symbol = ''
+    for bit in bits:
+        coded_symbol += bit
+        try:
+            data += decoder[coded_symbol]
+            coded_symbol = ''
+        except KeyError:
+            continue
+
+    with open('out_decoded.txt', 'w') as wf:
+        wf.write(data)
 
 
 class Huffman:
@@ -112,79 +181,6 @@ class Huffman:
 
         return (total_bits + total_coding_size + 8) / total_words
 
-    def encode(self, extractor) -> None:
-        codes = self.get_all_codes()
-
-        with open('out.txt', 'w') as wf:
-            wf.write(extractor.text)
-
-        # save decoder to file
-        with open('out_encoded.bin', 'wb') as wf:
-            for letter in codes:
-                wf.write(letter.encode())
-
-                wf.write(codes[letter].encode())
-                wf.write('2'.encode())
-
-            wf.write(b'\xff\xff')
-
-        # save data to file
-        bits = '1'
-        for symbol in extractor.text:
-            bits += codes[symbol]
-
-        size_in_bytes = math.ceil(len(bits) / 8)
-
-        with open('out_encoded.bin', 'ab') as wf:
-            wf.write(int(bits, 2).to_bytes(size_in_bytes, 'little'))
-
-    def decode(self) -> None:
-        decoder = {}
-        bits = ''
-        data = ''
-
-        with open('out_encoded.bin', 'rb') as rf:
-            lc = []
-            code = ''
-
-            while True:
-                byte = rf.read(1)
-
-                try:
-                    decoded_byte = byte.decode()
-                except UnicodeDecodeError:
-                    second_byte = rf.read(1)
-                    if second_byte == b'\xff':
-                        break
-                    decoded_byte = (byte + second_byte).decode()
-
-                if not lc:
-                    lc.append(decoded_byte)
-                elif decoded_byte != '2':
-                    code += decoded_byte
-                else:
-                    lc.append(code)
-                    code = ''
-
-                if len(lc) == 2:
-                    decoder[lc[1]] = lc[0]
-                    lc.clear()
-
-            data_in_bytes = rf.read()
-            bits = format(int.from_bytes(data_in_bytes, 'little'), 'b')[1:]
-
-        coded_symbol = ''
-        for bit in bits:
-            coded_symbol += bit
-            try:
-                data += decoder[coded_symbol]
-                coded_symbol = ''
-            except KeyError:
-                continue
-
-        with open('out_decoded.txt', 'w') as wf:
-            wf.write(data)
-
 
 def main():
     extractor = ExtractFromPdf('Neris.pdf')
@@ -199,8 +195,8 @@ def main():
     #     print('{} {}'.format(code, dictionary[code[0]]))
     # avg_bits = huffman.calculate_average(codes, 1)
     # print('average bits: {}'.format(avg_bits))
-    huffman.encode(extractor)
-    huffman.decode()
+    encode(extractor, huffman.get_all_codes())
+    decode()
 
 
 if __name__ == "__main__":

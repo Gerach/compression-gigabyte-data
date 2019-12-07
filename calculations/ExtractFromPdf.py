@@ -7,7 +7,7 @@ import re
 class ExtractFromPdf:
     def __init__(self, path_to_file):
         lt_iso_code = 'iso-8859-4'
-        encoded_text = textract.process(path_to_file, lt_iso_code)
+        encoded_text = textract
         self.text = encoded_text.decode(lt_iso_code)
         # self.text = self.text[:1000]
         self.alphabet = []
