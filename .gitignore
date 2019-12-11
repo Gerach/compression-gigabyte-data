@@ -105,6 +105,7 @@ venv.bak/
 
 # custom
 .idea
-calculations/out.txt
-calculations/out_decoded.txt
-calculations/out_encoded.bin
+compression/out.txt
+compression/out_decoded.txt
+compression/out_encoded.bin
+file_manipulation/random.txt
