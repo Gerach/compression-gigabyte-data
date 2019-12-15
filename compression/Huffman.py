@@ -3,6 +3,8 @@
 import operator
 import math
 
+from multiprocessing import Pool
+
 from Entropy import Entropy
 
 
@@ -14,30 +16,6 @@ class Node:
         self.has_parent = has_parent
         self.created = created
         self.parent = parent
-
-
-def encode(text, codes) -> None:
-    print('Encoding...')
-
-    # save decoder to file
-    with open('out_encoded.bin', 'wb') as wf:
-        for letter in codes:
-            wf.write(letter.encode())
-
-            wf.write(codes[letter].encode())
-            wf.write('2'.encode())
-
-        wf.write(b'\xff\xff')
-
-    # save data to file
-    bits = '1'
-    for symbol in text:
-        bits += codes[symbol]
-
-    size_in_bytes = math.ceil(len(bits) / 8)
-
-    with open('out_encoded.bin', 'ab') as wf:
-        wf.write(int(bits, 2).to_bytes(size_in_bytes, 'little'))
 
 
 def decode() -> None:
@@ -107,6 +85,7 @@ def get_letter_dictionary(text):
 class Huffman:
     def __init__(self, text):
         self.frequencies, self.words = get_letter_dictionary(text)
+        self.codes = None
         self.graph = []
         self.creation_time = 0
 
@@ -197,6 +176,31 @@ class Huffman:
 
         return (total_bits + total_coding_size + 8) / total_words
 
+    def encode_one_symbol(self, symbol):
+        return self.codes[symbol]
+
+    def encode(self, text) -> None:
+        print('Writing encoder...')
+        self.codes = self.get_all_codes()
+        with open('out_encoded.bin', 'wb') as wf:
+            for letter in self.codes:
+                wf.write(letter.encode())
+
+                wf.write(self.codes[letter].encode())
+                wf.write('2'.encode())
+
+            wf.write(b'\xff\xff')
+
+        print('Writing encoded data...')
+        bits = '1'
+        pool = Pool(2)
+        bits += ''.join(pool.map(self.encode_one_symbol, list(text)))
+
+        size_in_bytes = math.ceil(len(bits) / 8)
+
+        with open('out_encoded.bin', 'ab') as wf:
+            wf.write(int(bits, 2).to_bytes(size_in_bytes, 'little'))
+
 
 def main():
     with open('../file_manipulation/random.txt', 'r', encoding='utf8') as rf:
@@ -210,7 +214,7 @@ def main():
     #     print('{} {}'.format(code, dictionary[code[0]]))
     # avg_bits = huffman.calculate_average(codes, 1)
     # print('average bits: {}'.format(avg_bits))
-    encode(text, huffman.get_all_codes())
+    huffman.encode(text)
     decode()
 
 
