@@ -18,8 +18,6 @@ class Node:
 
 def encode(text, codes) -> None:
     print('Encoding...')
-    with open('out.txt', 'w') as wf:
-        wf.write(text)
 
     # save decoder to file
     with open('out_encoded.bin', 'wb') as wf:
@@ -90,25 +88,15 @@ def decode() -> None:
         wf.write(data)
 
 
-def filter_letters(letters, l_filter):
-    result = []
-    chunks = math.ceil(len(letters) / 1000)
-
-    for chunk in range(chunks):
-        result += list(filter(lambda x: x != l_filter, letters[chunk * 1000:chunk * 1000 + 1000]))
-
-    return result
-
-
 def get_letter_dictionary(text):
     print('Getting letter dictionary')
-    letters = list(text)
+    letters = text
     dictionary = {}
 
-    while letters:
-        letter = letters[0]
-        letter_count = letters.count(letter)
-        letters = filter_letters(letters, letter)
+    while text:
+        letter = text[0]
+        letter_count = text.count(letter)
+        text = text.replace(letter, '')
         dictionary[letter] = letter_count
 
     alphabet = list(dictionary.keys())
