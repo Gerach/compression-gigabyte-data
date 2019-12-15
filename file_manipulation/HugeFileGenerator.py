@@ -10,7 +10,7 @@ class HugeFileGenerator:
         self.words = []
         self.weights = []
 
-        with open('words.csv', 'r') as rf:
+        with open('words.csv', 'r', encoding='utf8') as rf:
             lines = rf.readlines()
 
         total_freq = 0
@@ -36,7 +36,7 @@ class HugeFileGenerator:
         while len(text) * 8 < size_bytes:
             text += ' '.join(pool.map(self.get_random_word, range(2048)))
 
-        with open(filename, 'w') as wf:
+        with open(filename, 'w', encoding='utf8') as wf:
             wf.write(text)
 
 
