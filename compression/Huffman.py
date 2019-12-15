@@ -89,6 +89,16 @@ def decode() -> None:
         wf.write(data)
 
 
+def filter_letters(letters, l_filter):
+    result = []
+    chunks = math.ceil(len(letters) / 100000)
+
+    for chunk in range(chunks):
+        result += list(filter(lambda x: x != l_filter, letters[chunk * 100000:chunk * 100000 + 100000]))
+
+    return result
+
+
 def get_letter_dictionary(text):
     letters = list(text)
     dictionary = {}
@@ -96,7 +106,7 @@ def get_letter_dictionary(text):
     while letters:
         letter = letters[0]
         letter_count = letters.count(letter)
-        letters = list(filter(lambda x: x != letter, letters))
+        letters = filter_letters(letters, letter)
         dictionary[letter] = letter_count
 
     alphabet = list(dictionary.keys())

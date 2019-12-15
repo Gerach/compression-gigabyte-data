@@ -55,7 +55,7 @@ class Entropy:
 
 def main():
     extractor = ExtractFromPdf('Neris.pdf')
-    dictionary = get_letter_dictionary()
+    dictionary = extractor.get_letter_dictionary()
     alphabet = extractor.get_alphabet()
 
     entropy = Entropy(dictionary, alphabet)
