@@ -4,7 +4,6 @@ import operator
 import math
 
 from Entropy import Entropy
-from ExtractFromPdf import ExtractFromPdf
 
 
 class Node:
@@ -17,10 +16,10 @@ class Node:
         self.parent = parent
 
 
-def encode(extractor, codes) -> None:
+def encode(text, codes) -> None:
 
     with open('out.txt', 'w') as wf:
-        wf.write(extractor.text)
+        wf.write(text)
 
     # save decoder to file
     with open('out_encoded.bin', 'wb') as wf:
@@ -34,7 +33,7 @@ def encode(extractor, codes) -> None:
 
     # save data to file
     bits = '1'
-    for symbol in extractor.text:
+    for symbol in text:
         bits += codes[symbol]
 
     size_in_bytes = math.ceil(len(bits) / 8)
@@ -86,18 +85,33 @@ def decode() -> None:
         except KeyError:
             continue
 
-    with open('out_decoded.txt', 'w') as wf:
+    with open('out_decoded.txt', 'w', encoding='utf8') as wf:
         wf.write(data)
 
 
+def get_letter_dictionary(text):
+    letters = list(text)
+    dictionary = {}
+
+    while letters:
+        letter = letters[0]
+        letter_count = letters.count(letter)
+        letters = list(filter(lambda x: x != letter, letters))
+        dictionary[letter] = letter_count
+
+    alphabet = list(dictionary.keys())
+
+    return dictionary, alphabet
+
+
 class Huffman:
-    def __init__(self, frequencies, words):
-        entropy = Entropy(frequencies, words)
-        probabilities = entropy.get_probabilities_sorted()
-        self.frequencies = frequencies
-        self.words = words
+    def __init__(self, text):
+        self.frequencies, self.words = get_letter_dictionary(text)
         self.graph = []
         self.creation_time = 0
+
+        entropy = Entropy(self.frequencies, self.words)
+        probabilities = entropy.get_probabilities_sorted()
 
         for word in probabilities:
             letter = word[0]
@@ -183,11 +197,10 @@ class Huffman:
 
 
 def main():
-    extractor = ExtractFromPdf('Neris.pdf')
-    dictionary = extractor.get_letter_dictionary()
-    alphabet = extractor.get_alphabet()
+    with open('../file_manipulation/random.txt', 'r', encoding='utf8') as rf:
+        text = rf.read()
 
-    huffman = Huffman(dictionary, alphabet)
+    huffman = Huffman(text)
     huffman.connect_all_nodes()
     # codes = huffman.get_all_codes()
     # codes = sorted(codes.items(), key=operator.itemgetter(1))
@@ -195,7 +208,7 @@ def main():
     #     print('{} {}'.format(code, dictionary[code[0]]))
     # avg_bits = huffman.calculate_average(codes, 1)
     # print('average bits: {}'.format(avg_bits))
-    encode(extractor, huffman.get_all_codes())
+    encode(text, huffman.get_all_codes())
     decode()
 
 

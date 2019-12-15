@@ -102,7 +102,7 @@ class ArithmeticCoding:
 
 def main():
     extractor = ExtractFromPdf('Neris.pdf')
-    dictionary = extractor.get_letter_dictionary()
+    dictionary = get_letter_dictionary()
     total_symbols = extractor.get_length()
     text = extractor.get_words()
     coding = ArithmeticCoding()

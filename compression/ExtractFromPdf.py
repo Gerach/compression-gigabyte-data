@@ -1,20 +1,15 @@
 #!/usr/bin/python3
 
 import textract
-import re
 
 
 class ExtractFromPdf:
     def __init__(self, path_to_file):
         lt_iso_code = 'iso-8859-4'
-        encoded_text = textract
+        encoded_text = textract.process(path_to_file, lt_iso_code)
         self.text = encoded_text.decode(lt_iso_code)
         # self.text = self.text[:1000]
         self.alphabet = []
-        # self.text = re.sub(r'\xad\s', '', self.text)
-        # self.text = re.sub(r'\d', '', self.text)
-        # self.text = self.text.strip()
-        # self.text = self.text.lower()
 
     def get_words(self) -> str:
         return self.text
@@ -60,9 +55,7 @@ class ExtractFromPdf:
 def main():
     extractor = ExtractFromPdf('Neris.pdf')
     words = extractor.get_word_dictionary()
-    # letters = extractor.get_letter_dictionary()
-    # print(letters)
-    print(words)
+    letters = extractor.get_letter_dictionary()
 
 
 if __name__ == "__main__":
