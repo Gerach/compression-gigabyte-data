@@ -17,7 +17,7 @@ class Node:
 
 
 def encode(text, codes) -> None:
-
+    print('Encoding...')
     with open('out.txt', 'w') as wf:
         wf.write(text)
 
@@ -43,6 +43,7 @@ def encode(text, codes) -> None:
 
 
 def decode() -> None:
+    print('Decoding...')
     decoder = {}
     data = ''
 
@@ -91,15 +92,16 @@ def decode() -> None:
 
 def filter_letters(letters, l_filter):
     result = []
-    chunks = math.ceil(len(letters) / 100000)
+    chunks = math.ceil(len(letters) / 1000)
 
     for chunk in range(chunks):
-        result += list(filter(lambda x: x != l_filter, letters[chunk * 100000:chunk * 100000 + 100000]))
+        result += list(filter(lambda x: x != l_filter, letters[chunk * 1000:chunk * 1000 + 1000]))
 
     return result
 
 
 def get_letter_dictionary(text):
+    print('Getting letter dictionary')
     letters = list(text)
     dictionary = {}
 
@@ -123,6 +125,7 @@ class Huffman:
         entropy = Entropy(self.frequencies, self.words)
         probabilities = entropy.get_probabilities_sorted()
 
+        print('Creating initial graph')
         for word in probabilities:
             letter = word[0]
             probability = word[1]
@@ -149,6 +152,7 @@ class Huffman:
         self.graph.sort(key=operator.attrgetter('has_parent', 'probability', 'created'))
 
     def connect_all_nodes(self):
+        print('Connecting graph nodes')
         while not self.is_graph_joined():
             node1, node2 = self.graph[0], self.graph[1]
             parent_probability = node1.probability + node2.probability

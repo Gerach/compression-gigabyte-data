@@ -19,6 +19,7 @@ class Entropy:
             self.total_letters += frequencies[word]
 
     def get_probabilities(self) -> dict:
+        print('Getting letter probabilities')
         probabilities = {}
 
         for word in self.words:
