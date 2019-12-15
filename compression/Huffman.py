@@ -194,7 +194,7 @@ class Huffman:
         print('Writing encoded data...')
         bits = '1'
         pool = Pool(2)
-        bits += ''.join(pool.map(self.encode_one_symbol, list(text)))
+        bits += ''.join(pool.map(self.encode_one_symbol, text))
 
         size_in_bytes = math.ceil(len(bits) / 8)
 
