@@ -20,6 +20,7 @@ class Node:
 
 
 def get_letter_dictionary(text):
+    start_time = time.time()
     print('Getting letter dictionary')
     dictionary = {}
 
@@ -30,6 +31,8 @@ def get_letter_dictionary(text):
         dictionary[letter] = letter_count
 
     alphabet = list(dictionary.keys())
+
+    print(time.time() - start_time)
 
     return dictionary, alphabet
 
@@ -42,6 +45,7 @@ class Huffman:
         self.words = None
         self.graph = []
         self.creation_time = 0
+        self.processing_cores = 3
 
     def create_node(self, probability, has_parent, letter=None, parent=None, is_left=None) -> Node:
         self.creation_time += 1
@@ -64,6 +68,7 @@ class Huffman:
 
     def connect_all_nodes(self):
         print('Connecting graph nodes')
+        start_time = time.time()
         while not self.is_graph_joined():
             node1, node2 = self.graph[0], self.graph[1]
             parent_probability = node1.probability + node2.probability
@@ -79,6 +84,7 @@ class Huffman:
                 node1.is_left, node2.is_left = False, True
 
             self.sort_nodes()
+        print(time.time() - start_time)
 
     def get_code(self, node, code='') -> str:
         if node.parent:
@@ -152,15 +158,18 @@ class Huffman:
         probabilities = self.get_probabilities_sorted()
 
         print('Creating initial graph')
+        start_time = time.time()
         for word in probabilities:
             letter = word[0]
             probability = word[1]
             node = Node(0, probability, False, letter)
             self.graph.append(node)
 
+        print(time.time() - start_time)
         self.connect_all_nodes()
 
         print('Writing encoder...')
+        start_time = time.time()
         self.codes = self.get_all_codes()
         with open('out_encoded.bin', 'wb') as wf:
             for letter in self.codes:
@@ -170,34 +179,27 @@ class Huffman:
                 wf.write('2'.encode())
 
             wf.write(b'\xff\xff')
-
+        print(time.time() - start_time)
         print('Writing encoded data...')
-        # bits = '1'
-
-        chunk_size = math.ceil(len(text) / 3)
+        start_time = time.time()
+        chunk_size = math.ceil(len(text) / self.processing_cores)
         for i in range(0, len(text), chunk_size):
             bits = '1'
             chunk = text[i:i+chunk_size]
-            pool = Pool(3)
+            pool = Pool(self.processing_cores)
             bits += ''.join(pool.map(self.encode_one_symbol, chunk))
             size_in_bytes = math.ceil(len(bits) / 8)
 
             with open('out_encoded.bin', 'ab') as wf:
                 wf.write(int(bits, 2).to_bytes(size_in_bytes, 'little'))
                 wf.write(b'\xff\xff')
-
-        # pool = Pool(3)
-        # bits += ''.join(pool.map(self.encode_one_symbol, text))
-
-        # size_in_bytes = math.ceil(len(bits) / 8)
-        #
-        # with open('out_encoded.bin', 'ab') as wf:
-        #     wf.write(int(bits, 2).to_bytes(size_in_bytes, 'little'))
+        print(time.time() - start_time)
 
     def read_decoder(self):
         self.decoder = {}
 
-        print('Reading decoder...')
+        print('Reading data...')
+        start_time = time.time()
         with open('out_encoded.bin', 'rb') as rf:
             # letter - code
             lc = []
@@ -226,9 +228,10 @@ class Huffman:
                     self.decoder[lc[1]] = lc[0]
                     lc.clear()
 
-            print('Reading encoded data...')
             data_in_bytes = rf.read()
             data_chunks = data_in_bytes.split(b'\xff\xff')
+
+            print(time.time() - start_time)
 
             return data_chunks
 
@@ -251,7 +254,7 @@ class Huffman:
         chunks = self.read_decoder()
 
         print('Decoding...')
-        pool = Pool(3)
+        pool = Pool(self.processing_cores)
         data += ''.join(pool.map(self.decode_chunk, chunks))
 
         with open('out_decoded.txt', 'w', encoding='utf8') as wf:
