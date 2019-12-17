@@ -2,10 +2,11 @@
 
 import operator
 import math
+import time
 
 from multiprocessing import Pool
 
-from Entropy import Entropy
+C_MAX_INT = 2147483647
 
 
 class Node:
@@ -18,57 +19,8 @@ class Node:
         self.parent = parent
 
 
-def decode() -> None:
-    print('Decoding...')
-    decoder = {}
-    data = ''
-
-    with open('out_encoded.bin', 'rb') as rf:
-        lc = []
-        code = ''
-
-        while True:
-            byte = rf.read(1)
-
-            try:
-                decoded_byte = byte.decode()
-            except UnicodeDecodeError:
-                second_byte = rf.read(1)
-                if second_byte == b'\xff':
-                    break
-                decoded_byte = (byte + second_byte).decode()
-
-            if not lc:
-                lc.append(decoded_byte)
-            elif decoded_byte != '2':
-                code += decoded_byte
-            else:
-                lc.append(code)
-                code = ''
-
-            if len(lc) == 2:
-                decoder[lc[1]] = lc[0]
-                lc.clear()
-
-        data_in_bytes = rf.read()
-        bits = format(int.from_bytes(data_in_bytes, 'little'), 'b')[1:]
-
-    coded_symbol = ''
-    for bit in bits:
-        coded_symbol += bit
-        try:
-            data += decoder[coded_symbol]
-            coded_symbol = ''
-        except KeyError:
-            continue
-
-    with open('out_decoded.txt', 'w', encoding='utf8') as wf:
-        wf.write(data)
-
-
 def get_letter_dictionary(text):
     print('Getting letter dictionary')
-    letters = text
     dictionary = {}
 
     while text:
@@ -83,21 +35,13 @@ def get_letter_dictionary(text):
 
 
 class Huffman:
-    def __init__(self, text):
-        self.frequencies, self.words = get_letter_dictionary(text)
+    def __init__(self):
         self.codes = None
+        self.decoder = None
+        self.frequencies = None
+        self.words = None
         self.graph = []
         self.creation_time = 0
-
-        entropy = Entropy(self.frequencies, self.words)
-        probabilities = entropy.get_probabilities_sorted()
-
-        print('Creating initial graph')
-        for word in probabilities:
-            letter = word[0]
-            probability = word[1]
-            node = Node(0, probability, False, letter)
-            self.graph.append(node)
 
     def create_node(self, probability, has_parent, letter=None, parent=None, is_left=None) -> Node:
         self.creation_time += 1
@@ -176,10 +120,46 @@ class Huffman:
 
         return (total_bits + total_coding_size + 8) / total_words
 
+    def get_probabilities(self, total_letters) -> dict:
+        probabilities = {}
+
+        for word in self.words:
+            probabilities[word] = self.frequencies[word] / total_letters
+
+        return probabilities
+
+    def get_probabilities_sorted(self) -> list:
+        total_letters = 0
+        for word in self.frequencies:
+            total_letters += self.frequencies[word]
+
+        probabilities = self.get_probabilities(total_letters)
+
+        return sorted(probabilities.items(), key=operator.itemgetter(1))
+
     def encode_one_symbol(self, symbol):
         return self.codes[symbol]
 
-    def encode(self, text) -> None:
+    def encode(self, file_path) -> None:
+        with open(file_path, 'r', encoding='utf8') as rf:
+            text = rf.read()
+
+        self.frequencies, self.words = get_letter_dictionary(text)
+        self.graph = []
+
+        self.creation_time = 0
+
+        probabilities = self.get_probabilities_sorted()
+
+        print('Creating initial graph')
+        for word in probabilities:
+            letter = word[0]
+            probability = word[1]
+            node = Node(0, probability, False, letter)
+            self.graph.append(node)
+
+        self.connect_all_nodes()
+
         print('Writing encoder...')
         self.codes = self.get_all_codes()
         with open('out_encoded.bin', 'wb') as wf:
@@ -192,30 +172,105 @@ class Huffman:
             wf.write(b'\xff\xff')
 
         print('Writing encoded data...')
-        bits = '1'
-        pool = Pool(2)
-        bits += ''.join(pool.map(self.encode_one_symbol, text))
+        # bits = '1'
 
-        size_in_bytes = math.ceil(len(bits) / 8)
+        chunk_size = math.ceil(len(text) / 3)
+        for i in range(0, len(text), chunk_size):
+            bits = '1'
+            chunk = text[i:i+chunk_size]
+            pool = Pool(3)
+            bits += ''.join(pool.map(self.encode_one_symbol, chunk))
+            size_in_bytes = math.ceil(len(bits) / 8)
 
-        with open('out_encoded.bin', 'ab') as wf:
-            wf.write(int(bits, 2).to_bytes(size_in_bytes, 'little'))
+            with open('out_encoded.bin', 'ab') as wf:
+                wf.write(int(bits, 2).to_bytes(size_in_bytes, 'little'))
+                wf.write(b'\xff\xff')
+
+        # pool = Pool(3)
+        # bits += ''.join(pool.map(self.encode_one_symbol, text))
+
+        # size_in_bytes = math.ceil(len(bits) / 8)
+        #
+        # with open('out_encoded.bin', 'ab') as wf:
+        #     wf.write(int(bits, 2).to_bytes(size_in_bytes, 'little'))
+
+    def read_decoder(self):
+        self.decoder = {}
+
+        print('Reading decoder...')
+        with open('out_encoded.bin', 'rb') as rf:
+            # letter - code
+            lc = []
+            code = ''
+
+            while True:
+                byte = rf.read(1)
+
+                try:
+                    decoded_byte = byte.decode()
+                except UnicodeDecodeError:
+                    second_byte = rf.read(1)
+                    if second_byte == b'\xff':
+                        break
+                    decoded_byte = (byte + second_byte).decode()
+
+                if not lc:
+                    lc.append(decoded_byte)
+                elif decoded_byte != '2':
+                    code += decoded_byte
+                else:
+                    lc.append(code)
+                    code = ''
+
+                if len(lc) == 2:
+                    self.decoder[lc[1]] = lc[0]
+                    lc.clear()
+
+            print('Reading encoded data...')
+            data_in_bytes = rf.read()
+            data_chunks = data_in_bytes.split(b'\xff\xff')
+
+            return data_chunks
+
+    def decode_chunk(self, chunk):
+        bits = format(int.from_bytes(chunk, 'little'), 'b')[1:]
+
+        data = ''
+        coded_symbol = ''
+        for bit in bits:
+            coded_symbol += bit
+            if coded_symbol in self.decoder:
+                data += self.decoder[coded_symbol]
+                coded_symbol = ''
+
+        return data
+
+    def decode(self) -> None:
+        start_time = time.time()
+        data = ''
+        chunks = self.read_decoder()
+
+        print('Decoding...')
+        pool = Pool(3)
+        data += ''.join(pool.map(self.decode_chunk, chunks))
+
+        with open('out_decoded.txt', 'w', encoding='utf8') as wf:
+            wf.write(data)
+
+        print(time.time() - start_time)
 
 
 def main():
-    with open('../file_manipulation/random.txt', 'r', encoding='utf8') as rf:
-        text = rf.read()
-
-    huffman = Huffman(text)
-    huffman.connect_all_nodes()
-    # codes = huffman.get_all_codes()
+    encoder = Huffman()
+    # codes = encoder.get_all_codes()
     # codes = sorted(codes.items(), key=operator.itemgetter(1))
     # for code in codes:
     #     print('{} {}'.format(code, dictionary[code[0]]))
-    # avg_bits = huffman.calculate_average(codes, 1)
+    # avg_bits = encoder.calculate_average(codes, 1)
     # print('average bits: {}'.format(avg_bits))
-    huffman.encode(text)
-    decode()
+    encoder.encode('../file_manipulation/random_10.txt')
+    decoder = Huffman()
+    decoder.decode()
 
 
 if __name__ == "__main__":

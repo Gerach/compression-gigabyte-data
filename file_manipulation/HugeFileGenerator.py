@@ -54,7 +54,7 @@ class HugeFileGenerator:
 
 def main():
     generator = HugeFileGenerator()
-    generator.generate_file('random.txt', 0.1)
+    generator.generate_file('random.txt', 0.01)
 
 
 if __name__ == "__main__":
