@@ -45,7 +45,7 @@ class Huffman:
         self.words = None
         self.graph = []
         self.creation_time = 0
-        self.processing_cores = 3
+        self.processing_cores = 4
 
     def create_node(self, probability, has_parent, letter=None, parent=None, is_left=None) -> Node:
         self.creation_time += 1
@@ -188,10 +188,9 @@ class Huffman:
             chunk = text[i:i+chunk_size]
             pool = Pool(self.processing_cores)
             bits += ''.join(pool.map(self.encode_one_symbol, chunk))
-            size_in_bytes = math.ceil(len(bits) / 8)
 
             with open('out_encoded.bin', 'ab') as wf:
-                wf.write(int(bits, 2).to_bytes(size_in_bytes, 'little'))
+                wf.write(int(bits, 2).to_bytes(len(bits) // 8 + 1, 'little'))
                 wf.write(b'\xff\xff')
         print(time.time() - start_time)
 
