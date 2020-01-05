@@ -68,7 +68,7 @@ class Huffman:
         self.processing_cores = multiprocessing.cpu_count()
         if processing_cores:
             self.processing_cores = processing_cores
-        self.chunk_size = 1000
+        self.chunk_size = 104857600
         if chunk_size:
             self.chunk_size = chunk_size
 
@@ -157,6 +157,7 @@ class Huffman:
         return self.codes[symbol]
 
     def prepare_graph(self, file_path, frequencies=None, words=None):
+        self.text_len = 0
         self.frequencies, self.words = frequencies, words
         if not frequencies or not words:
             start_time = time.time()
@@ -165,7 +166,8 @@ class Huffman:
 
             with open(file_path, 'r', encoding='utf8') as rf:
                 while True:
-                    chunk = rf.read(1048576)
+                    chunk = rf.read(self.chunk_size)
+                    self.text_len += len(chunk)
                     for letter in set(chunk):
                         if letter in self.frequencies:
                             self.frequencies[letter] += chunk.count(letter)
@@ -225,11 +227,10 @@ class Huffman:
 
         print('Writing encoded data...')
         start_time = time.time()
-        chunk_size = 104857600
         with open(file_path, 'r', encoding='utf8') as rf:
-            for _ in range(0, self.text_len, chunk_size):
+            for _ in range(0, self.text_len, self.chunk_size):
                 bits = '1'
-                chunk = rf.read(chunk_size)
+                chunk = rf.read(self.chunk_size)
 
                 pool = Pool(self.processing_cores)
                 bits += ''.join(pool.map(self.encode_one_symbol, chunk))
