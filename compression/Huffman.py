@@ -19,8 +19,9 @@ def read_args():
     parser.add_argument('-o', type=str, metavar='<file path>', required=True, help='Path to output file directory')
     parser.add_argument('-e', action='store_true', help='Encode file')
     parser.add_argument('-d', action='store_true', help='Decode file')
+    parser.add_argument('-c', type=int, help='Chunk size')
     parser.add_argument(
-        '-c',
+        '-p',
         type=int,
         help='Pool processes this tool is going to use. '
              'Recommended to set to your processor core amount for best results.'
@@ -37,11 +38,11 @@ def read_args():
         parser.error('Both actions cannot be simultaneously processed: -e -d')
 
     if args.e:
-        encoder = Huffman(args.c)
+        encoder = Huffman(args.p, args.c)
         encoder.encode(args.f, args.o)
 
     if args.d:
-        decoder = Huffman(args.c)
+        decoder = Huffman(args.p, args.c)
         decoder.decode(args.f, args.o)
 
 
@@ -56,17 +57,20 @@ class Node:
 
 
 class Huffman:
-    def __init__(self, processing_cores):
+    def __init__(self, processing_cores, chunk_size):
         self.codes = None
         self.decoder = None
         self.frequencies = None
-        self.text = None
+        self.text_len = 0
         self.words = None
         self.graph = []
         self.creation_time = 0
         self.processing_cores = multiprocessing.cpu_count()
         if processing_cores:
             self.processing_cores = processing_cores
+        self.chunk_size = 1000
+        if chunk_size:
+            self.chunk_size = chunk_size
 
     def create_node(self, probability, has_parent, letter=None, parent=None, is_left=None) -> Node:
         self.creation_time += 1
@@ -172,11 +176,12 @@ class Huffman:
 
     def prepare_graph(self, file_path, frequencies=None, words=None):
         with open(file_path, 'r', encoding='utf8') as rf:
-            self.text = rf.read()
+            text = rf.read()
+            self.text_len = len(text)
 
         self.frequencies, self.words = frequencies, words
         if not frequencies or not words:
-            self.frequencies, self.words = self.get_letter_dictionary(self.text)
+            self.frequencies, self.words = self.get_letter_dictionary(text)
         self.graph = []
 
         self.creation_time = 0
@@ -200,7 +205,7 @@ class Huffman:
         if os.sys.platform == 'win32':
             dir_split = "\\"
         file_name = file_path.split(dir_split)[-1]
-        file_name_wo_ext = file_name.rsplit('.', 1)[0]
+        file_name_wo_ext = file_name.split('.', 1)[0]
         file_name_output = '{}{}{}.gm'.format(output_file_path, dir_split, file_name_wo_ext)
 
         c_time = os.path.getctime(file_path)
@@ -225,10 +230,14 @@ class Huffman:
 
         print('Writing encoded data...')
         start_time = time.time()
-        chunk_size = math.ceil(len(self.text) / self.processing_cores)
-        for i in range(0, len(self.text), chunk_size):
+        chunk_size_per_core = math.ceil(self.text_len / self.processing_cores * self.chunk_size)
+        for i in range(0, self.text_len, chunk_size_per_core):
             bits = '1'
-            chunk = self.text[i:i+chunk_size]
+
+            with open(file_path, 'r', encoding='utf8') as rf:
+                rf.seek(i)
+                chunk = rf.read(i+chunk_size_per_core)
+
             pool = Pool(self.processing_cores)
             bits += ''.join(pool.map(self.encode_one_symbol, chunk))
 
