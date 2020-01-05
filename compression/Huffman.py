@@ -2,9 +2,9 @@
 
 import operator
 import os
-import math
 import time
 import argparse
+import gc
 
 import multiprocessing
 from multiprocessing import Pool
@@ -86,10 +86,10 @@ class Huffman:
 
         return nodes_without_parents == 1
 
-    def sort_nodes(self):
+    def sort_nodes(self) -> None:
         self.graph.sort(key=operator.attrgetter('has_parent', 'probability', 'created'))
 
-    def connect_all_nodes(self):
+    def connect_all_nodes(self) -> None:
         print('Connecting graph nodes')
         start_time = time.time()
         while not self.is_graph_joined():
@@ -153,35 +153,30 @@ class Huffman:
 
         return sorted(probabilities.items(), key=operator.itemgetter(1))
 
-    @staticmethod
-    def get_letter_dictionary(text):
-        start_time = time.time()
-        print('Getting letter dictionary')
-        dictionary = {}
-
-        while text:
-            letter = text[0]
-            letter_count = text.count(letter)
-            text = text.replace(letter, '')
-            dictionary[letter] = letter_count
-
-        alphabet = list(dictionary.keys())
-
-        print(time.time() - start_time)
-
-        return dictionary, alphabet
-
     def encode_one_symbol(self, symbol):
         return self.codes[symbol]
 
     def prepare_graph(self, file_path, frequencies=None, words=None):
-        with open(file_path, 'r', encoding='utf8') as rf:
-            text = rf.read()
-            self.text_len = len(text)
-
         self.frequencies, self.words = frequencies, words
         if not frequencies or not words:
-            self.frequencies, self.words = self.get_letter_dictionary(text)
+            start_time = time.time()
+            print('Getting letter dictionary')
+            self.frequencies = {}
+
+            with open(file_path, 'r', encoding='utf8') as rf:
+                while True:
+                    chunk = rf.read(1048576)
+                    for letter in set(chunk):
+                        if letter in self.frequencies:
+                            self.frequencies[letter] += chunk.count(letter)
+                        else:
+                            self.frequencies[letter] = chunk.count(letter)
+                    if not chunk:
+                        break
+
+            self.words = list(self.frequencies.keys())
+
+            print(time.time() - start_time)
         self.graph = []
 
         self.creation_time = 0
@@ -230,21 +225,20 @@ class Huffman:
 
         print('Writing encoded data...')
         start_time = time.time()
-        chunk_size_per_core = math.ceil(self.text_len / self.processing_cores * self.chunk_size)
-        for i in range(0, self.text_len, chunk_size_per_core):
-            bits = '1'
+        chunk_size = 104857600
+        with open(file_path, 'r', encoding='utf8') as rf:
+            for _ in range(0, self.text_len, chunk_size):
+                bits = '1'
+                chunk = rf.read(chunk_size)
 
-            with open(file_path, 'r', encoding='utf8') as rf:
-                rf.seek(i)
-                chunk = rf.read(i+chunk_size_per_core)
+                pool = Pool(self.processing_cores)
+                bits += ''.join(pool.map(self.encode_one_symbol, chunk))
 
-            pool = Pool(self.processing_cores)
-            bits += ''.join(pool.map(self.encode_one_symbol, chunk))
-
-            with open(file_name_output, 'ab') as wf:
-                wf.write(int(bits, 2).to_bytes(len(bits) // 8 + 1, 'little'))
-                wf.write(CHUNK_SEPARATOR)
-        print(time.time() - start_time)
+                with open(file_name_output, 'ab') as wf:
+                    wf.write(int(bits, 2).to_bytes(len(bits) // 8 + 1, 'little'))
+                    wf.write(CHUNK_SEPARATOR)
+                gc.collect()
+            print(time.time() - start_time)
 
     @staticmethod
     def read_properties(data_stream):
