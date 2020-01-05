@@ -6,6 +6,7 @@ import math
 import time
 import argparse
 
+import multiprocessing
 from multiprocessing import Pool
 
 WORDS_SEPARATOR = '2'
@@ -18,6 +19,12 @@ def read_args():
     parser.add_argument('-o', type=str, metavar='<file path>', required=True, help='Path to output file directory')
     parser.add_argument('-e', action='store_true', help='Encode file')
     parser.add_argument('-d', action='store_true', help='Decode file')
+    parser.add_argument(
+        '-c',
+        type=int,
+        help='Pool processes this tool is going to use. '
+             'Recommended to set to your processor core amount for best results.'
+    )
     args = parser.parse_args()
 
     if not os.path.exists(args.f):
@@ -30,11 +37,11 @@ def read_args():
         parser.error('Both actions cannot be simultaneously processed: -e -d')
 
     if args.e:
-        encoder = Huffman()
+        encoder = Huffman(args.c)
         encoder.encode(args.f, args.o)
 
     if args.d:
-        decoder = Huffman()
+        decoder = Huffman(args.c)
         decoder.decode(args.f, args.o)
 
 
@@ -49,7 +56,7 @@ class Node:
 
 
 class Huffman:
-    def __init__(self):
+    def __init__(self, processing_cores):
         self.codes = None
         self.decoder = None
         self.frequencies = None
@@ -57,7 +64,9 @@ class Huffman:
         self.words = None
         self.graph = []
         self.creation_time = 0
-        self.processing_cores = 4
+        self.processing_cores = multiprocessing.cpu_count()
+        if processing_cores:
+            self.processing_cores = processing_cores
 
     def create_node(self, probability, has_parent, letter=None, parent=None, is_left=None) -> Node:
         self.creation_time += 1
@@ -187,11 +196,23 @@ class Huffman:
 
     def encode(self, file_path, output_file_path) -> None:
         self.prepare_graph(file_path)
+        file_name = file_path.split('/')[-1]
+        file_name_wo_ext = file_name.rsplit('.', 1)[0]
+        file_name_output = '{}/{}.gm'.format(output_file_path, file_name_wo_ext)
+
+        c_time = os.path.getctime(file_path)
+        m_time = os.path.getmtime(file_path)
+
+        properties = '{} {} {} '.format(file_name, c_time, m_time)
+
+        print('Writing document properties')
+        with open(file_name_output, 'wb') as wf:
+            wf.write(properties.encode())
 
         print('Writing encoder...')
         start_time = time.time()
         self.codes = self.get_all_codes()
-        with open('out_encoded.bin', 'wb') as wf:
+        with open(file_name_output, 'ab') as wf:
             for letter in self.codes:
                 wf.write(letter.encode())
                 wf.write(self.codes[letter].encode())
@@ -208,17 +229,29 @@ class Huffman:
             pool = Pool(self.processing_cores)
             bits += ''.join(pool.map(self.encode_one_symbol, chunk))
 
-            with open('out_encoded.bin', 'ab') as wf:
+            with open(file_name_output, 'ab') as wf:
                 wf.write(int(bits, 2).to_bytes(len(bits) // 8 + 1, 'little'))
                 wf.write(CHUNK_SEPARATOR)
         print(time.time() - start_time)
 
+    @staticmethod
+    def read_properties(data_stream):
+        f_bytes = data_stream.read(1)
+        while ' ' not in f_bytes.decode():
+            f_bytes += data_stream.read(1)
+        return f_bytes.decode()
+
     def read_decoder(self, file_path):
         self.decoder = {}
+        properties = {}
 
         print('Reading data...')
         start_time = time.time()
         with open(file_path, 'rb') as rf:
+            properties['f_name'] = self.read_properties(rf).strip()
+            properties['f_created'] = float(self.read_properties(rf))
+            properties['f_modified'] = float(self.read_properties(rf))
+
             # letter - code
             lc = []
             code = ''
@@ -251,7 +284,7 @@ class Huffman:
 
             print(time.time() - start_time)
 
-            return data_chunks
+            return properties, data_chunks
 
     def decode_chunk(self, chunk):
         bits = format(int.from_bytes(chunk, 'little'), 'b')[1:]
@@ -269,14 +302,16 @@ class Huffman:
     def decode(self, file_path, output_file_path) -> None:
         start_time = time.time()
         data = ''
-        chunks = self.read_decoder(file_path)
+        properties, chunks = self.read_decoder(file_path)
+        output_file = '{}/{}'.format(output_file_path, properties['f_name'])
 
         print('Decoding...')
         pool = Pool(self.processing_cores)
         data += ''.join(pool.map(self.decode_chunk, chunks))
 
-        with open('{}/out_decoded.txt'.format(output_file_path), 'w', encoding='utf8') as wf:
+        with open(output_file, 'w', encoding='utf8') as wf:
             wf.write(data)
+        os.utime(output_file, (properties['f_created'], properties['f_modified']))
 
         print(time.time() - start_time)
 
