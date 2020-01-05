@@ -1,12 +1,41 @@
 #!/usr/bin/python3
 
 import operator
+import os
 import math
 import time
+import argparse
 
 from multiprocessing import Pool
 
-C_MAX_INT = 2147483647
+WORDS_SEPARATOR = '2'
+CHUNK_SEPARATOR = b'\xff\xff'
+
+
+def read_args():
+    parser = argparse.ArgumentParser(description='Custom text compressor writen by Gerardas Martynovas')
+    parser.add_argument('-f', type=str, metavar='<file path>', required=True, help='Path to target file')
+    parser.add_argument('-o', type=str, metavar='<file path>', required=True, help='Path to output file directory')
+    parser.add_argument('-e', action='store_true', help='Encode file')
+    parser.add_argument('-d', action='store_true', help='Decode file')
+    args = parser.parse_args()
+
+    if not os.path.exists(args.f):
+        parser.error('File not found: {}'.format(args.f))
+
+    if not (args.e or args.d):
+        parser.error('Undefined action, one of following actions is required: -e -d')
+
+    if args.e and args.d:
+        parser.error('Both actions cannot be simultaneously processed: -e -d')
+
+    if args.e:
+        encoder = Huffman()
+        encoder.encode(args.f, args.o)
+
+    if args.d:
+        decoder = Huffman()
+        decoder.decode(args.f, args.o)
 
 
 class Node:
@@ -19,29 +48,12 @@ class Node:
         self.parent = parent
 
 
-def get_letter_dictionary(text):
-    start_time = time.time()
-    print('Getting letter dictionary')
-    dictionary = {}
-
-    while text:
-        letter = text[0]
-        letter_count = text.count(letter)
-        text = text.replace(letter, '')
-        dictionary[letter] = letter_count
-
-    alphabet = list(dictionary.keys())
-
-    print(time.time() - start_time)
-
-    return dictionary, alphabet
-
-
 class Huffman:
     def __init__(self):
         self.codes = None
         self.decoder = None
         self.frequencies = None
+        self.text = None
         self.words = None
         self.graph = []
         self.creation_time = 0
@@ -58,10 +70,8 @@ class Huffman:
         for node in self.graph:
             if not node.parent:
                 nodes_without_parents += 1
-            if nodes_without_parents > 1:
-                return False
 
-        return True
+        return nodes_without_parents == 1
 
     def sort_nodes(self):
         self.graph.sort(key=operator.attrgetter('has_parent', 'probability', 'created'))
@@ -113,19 +123,6 @@ class Huffman:
 
         return codes
 
-    def calculate_average(self, codes, letters_per_code) -> float:
-        total_words = sum(self.frequencies.values())
-        total_coding_size = 0
-        total_bits = 0
-
-        for code in codes:
-            bits_per_encoded_word = len(code[1])
-            total_coding_size += (8 * letters_per_code) + bits_per_encoded_word
-            words_per_encoded_code = self.frequencies[code[0]]
-            total_bits += bits_per_encoded_word * words_per_encoded_code
-
-        return (total_bits + total_coding_size + 8) / total_words
-
     def get_probabilities(self, total_letters) -> dict:
         probabilities = {}
 
@@ -143,14 +140,34 @@ class Huffman:
 
         return sorted(probabilities.items(), key=operator.itemgetter(1))
 
+    @staticmethod
+    def get_letter_dictionary(text):
+        start_time = time.time()
+        print('Getting letter dictionary')
+        dictionary = {}
+
+        while text:
+            letter = text[0]
+            letter_count = text.count(letter)
+            text = text.replace(letter, '')
+            dictionary[letter] = letter_count
+
+        alphabet = list(dictionary.keys())
+
+        print(time.time() - start_time)
+
+        return dictionary, alphabet
+
     def encode_one_symbol(self, symbol):
         return self.codes[symbol]
 
-    def encode(self, file_path) -> None:
+    def prepare_graph(self, file_path, frequencies=None, words=None):
         with open(file_path, 'r', encoding='utf8') as rf:
-            text = rf.read()
+            self.text = rf.read()
 
-        self.frequencies, self.words = get_letter_dictionary(text)
+        self.frequencies, self.words = frequencies, words
+        if not frequencies or not words:
+            self.frequencies, self.words = self.get_letter_dictionary(self.text)
         self.graph = []
 
         self.creation_time = 0
@@ -168,38 +185,40 @@ class Huffman:
         print(time.time() - start_time)
         self.connect_all_nodes()
 
+    def encode(self, file_path, output_file_path) -> None:
+        self.prepare_graph(file_path)
+
         print('Writing encoder...')
         start_time = time.time()
         self.codes = self.get_all_codes()
         with open('out_encoded.bin', 'wb') as wf:
             for letter in self.codes:
                 wf.write(letter.encode())
-
                 wf.write(self.codes[letter].encode())
-                wf.write('2'.encode())
-
-            wf.write(b'\xff\xff')
+                wf.write(WORDS_SEPARATOR.encode())
+            wf.write(CHUNK_SEPARATOR)
         print(time.time() - start_time)
+
         print('Writing encoded data...')
         start_time = time.time()
-        chunk_size = math.ceil(len(text) / self.processing_cores)
-        for i in range(0, len(text), chunk_size):
+        chunk_size = math.ceil(len(self.text) / self.processing_cores)
+        for i in range(0, len(self.text), chunk_size):
             bits = '1'
-            chunk = text[i:i+chunk_size]
+            chunk = self.text[i:i+chunk_size]
             pool = Pool(self.processing_cores)
             bits += ''.join(pool.map(self.encode_one_symbol, chunk))
 
             with open('out_encoded.bin', 'ab') as wf:
                 wf.write(int(bits, 2).to_bytes(len(bits) // 8 + 1, 'little'))
-                wf.write(b'\xff\xff')
+                wf.write(CHUNK_SEPARATOR)
         print(time.time() - start_time)
 
-    def read_decoder(self):
+    def read_decoder(self, file_path):
         self.decoder = {}
 
         print('Reading data...')
         start_time = time.time()
-        with open('out_encoded.bin', 'rb') as rf:
+        with open(file_path, 'rb') as rf:
             # letter - code
             lc = []
             code = ''
@@ -217,7 +236,7 @@ class Huffman:
 
                 if not lc:
                     lc.append(decoded_byte)
-                elif decoded_byte != '2':
+                elif decoded_byte != WORDS_SEPARATOR:
                     code += decoded_byte
                 else:
                     lc.append(code)
@@ -247,33 +266,20 @@ class Huffman:
 
         return data
 
-    def decode(self) -> None:
+    def decode(self, file_path, output_file_path) -> None:
         start_time = time.time()
         data = ''
-        chunks = self.read_decoder()
+        chunks = self.read_decoder(file_path)
 
         print('Decoding...')
         pool = Pool(self.processing_cores)
         data += ''.join(pool.map(self.decode_chunk, chunks))
 
-        with open('out_decoded.txt', 'w', encoding='utf8') as wf:
+        with open('{}/out_decoded.txt'.format(output_file_path), 'w', encoding='utf8') as wf:
             wf.write(data)
 
         print(time.time() - start_time)
 
 
-def main():
-    encoder = Huffman()
-    # codes = encoder.get_all_codes()
-    # codes = sorted(codes.items(), key=operator.itemgetter(1))
-    # for code in codes:
-    #     print('{} {}'.format(code, dictionary[code[0]]))
-    # avg_bits = encoder.calculate_average(codes, 1)
-    # print('average bits: {}'.format(avg_bits))
-    encoder.encode('../file_manipulation/random_10.txt')
-    decoder = Huffman()
-    decoder.decode()
-
-
 if __name__ == "__main__":
-    main()
+    read_args()
