@@ -196,9 +196,12 @@ class Huffman:
 
     def encode(self, file_path, output_file_path) -> None:
         self.prepare_graph(file_path)
-        file_name = file_path.split('/')[-1]
+        dir_split = '/'
+        if os.sys.platform == 'win32':
+            dir_split = "\\"
+        file_name = file_path.split(dir_split)[-1]
         file_name_wo_ext = file_name.rsplit('.', 1)[0]
-        file_name_output = '{}/{}.gm'.format(output_file_path, file_name_wo_ext)
+        file_name_output = '{}{}{}.gm'.format(output_file_path, dir_split, file_name_wo_ext)
 
         c_time = os.path.getctime(file_path)
         m_time = os.path.getmtime(file_path)
