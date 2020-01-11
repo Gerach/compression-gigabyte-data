@@ -198,6 +198,7 @@ class Huffman:
                 chunk = rf.read(self.chunk_size)
                 if not chunk:
                     break
+                self.text_len += len(chunk)
                 words = words.union(set(chunk))
             self.words = list(words)
 
@@ -210,7 +211,6 @@ class Huffman:
                 chunk = rf.read(9000)
                 if not chunk:
                     break
-                self.text_len += len(chunk)
                 for letter in set(chunk):
                     if letter in self.frequencies:
                         self.frequencies[letter] += chunk.count(letter)
