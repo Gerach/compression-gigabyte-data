@@ -168,7 +168,7 @@ class Huffman:
     def encode_one_symbol(self, symbol):
         return self.codes[symbol]
 
-    def all_symbols_coded(self, all_codes) -> bool:
+    def all_symbols_used(self, all_codes) -> bool:
         for letter in self.words:
             if letter not in all_codes.keys():
                 return False
@@ -202,13 +202,12 @@ class Huffman:
             self.words = list(words)
 
         # calculate codes for whole file
-        self.graph = []
-        self.creation_time = 0
-
         with open(file_path, 'r', encoding='utf8') as rf:
             while True:
+                self.graph = []
+                self.creation_time = 0
                 # read one chunk
-                chunk = rf.read(self.chunk_size)
+                chunk = rf.read(9000)
                 if not chunk:
                     break
                 self.text_len += len(chunk)
@@ -219,7 +218,10 @@ class Huffman:
                         self.frequencies[letter] = chunk.count(letter)
 
                 # calculate codes for one chunk
-                probabilities = self.get_probabilities_sorted()
+                try:
+                    probabilities = self.get_probabilities_sorted()
+                except KeyError:
+                    continue
                 for word in probabilities:
                     letter = word[0]
                     probability = word[1]
@@ -227,22 +229,17 @@ class Huffman:
                     self.graph.append(node)
 
                 # check codes differences
-                empty_codes = self.get_all_codes()
-                if self.all_symbols_coded(empty_codes):
-                    self.connect_all_nodes()
-                    codes = self.get_all_codes()
-                    if current_codes:
-                        are_similar = self.compare_codes(current_codes, codes)
-                        if are_similar:
-                            self.codes = codes
-                            print(time.time() - start_time)
-                            return
+                self.connect_all_nodes()
+                codes = self.get_all_codes()
+                if current_codes:
+                    are_similar = self.compare_codes(current_codes, codes)
+                    if are_similar:
+                        print(time.time() - start_time)
+                        return
 
-                    self.disconnect_all_nodes()
-                    current_codes = codes
+                current_codes = codes
 
         self.connect_all_nodes()
-        self.codes = codes
         print(time.time() - start_time)
 
     def encode(self, file_path, output_file_path) -> None:
@@ -265,11 +262,11 @@ class Huffman:
 
         print('Writing encoder...')
         start_time = time.time()
-        codes = self.get_all_codes()
+        self.codes = self.get_all_codes()
         with open(file_name_output, 'ab') as wf:
-            for letter in codes:
+            for letter in self.codes:
                 wf.write(letter.encode())
-                wf.write(codes[letter].encode())
+                wf.write(self.codes[letter].encode())
                 wf.write(WORDS_SEPARATOR.encode())
             wf.write(CHUNK_SEPARATOR)
         print(time.time() - start_time)
