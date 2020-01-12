@@ -135,8 +135,8 @@ class HuffmanPartial:
         self.processes = multiprocessing.cpu_count()
         if processes:
             self.processes = processes
-        # default chunk size of 100MB optimized for huge file compression
-        self.chunk_size = 104857600
+        # default chunk size of 10MB optimized for huge file compression
+        self.chunk_size = 10485760
         if chunk_size:
             self.chunk_size = chunk_size
 

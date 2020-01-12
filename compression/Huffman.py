@@ -68,7 +68,7 @@ class Huffman:
         self.processing_cores = multiprocessing.cpu_count()
         if processing_cores:
             self.processing_cores = processing_cores
-        self.chunk_size = 104857600
+        self.chunk_size = 10485760
         if chunk_size:
             self.chunk_size = chunk_size
 
