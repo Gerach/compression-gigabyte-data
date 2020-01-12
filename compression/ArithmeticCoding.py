@@ -4,8 +4,6 @@ import fractions
 import re
 import progressbar
 
-from ExtractFromPdf import ExtractFromPdf
-
 
 def calc_numerator(message) -> str:
     return re.sub(r'10*', '', message, 1)
@@ -18,6 +16,19 @@ def calc_denominator(message) -> str:
         output += '0'
 
     return output
+
+
+def get_letter_dictionary(text) -> dict:
+    letters = list(text)
+    dictionary = {}
+
+    while letters:
+        letter = letters[0]
+        letter_count = letters.count(letter)
+        letters = list(filter(lambda x: x != letter, letters))
+        dictionary[letter] = letter_count
+
+    return dictionary
 
 
 class ArithmeticCoding:
@@ -53,6 +64,7 @@ class ArithmeticCoding:
             start += self.interval_start[letter] * width
             width *= self.width[letter]
 
+        bar.finish()
         end = start + width
 
         fraction = fractions.Fraction()
@@ -68,7 +80,6 @@ class ArithmeticCoding:
 
         fraction_xor = fraction.numerator ^ fraction.denominator
         numerator_binary = bin(fraction_xor)
-        bar.finish()
         return numerator_binary
 
     def decode(self, message, message_length) -> str:
@@ -101,17 +112,20 @@ class ArithmeticCoding:
 
 
 def main():
-    extractor = ExtractFromPdf('Neris.pdf')
-    dictionary = get_letter_dictionary()
-    total_symbols = extractor.get_length()
-    text = extractor.get_words()
-    coding = ArithmeticCoding()
-    coding.calc_intervals(dictionary, total_symbols)
-    encoded_message = coding.encode(text, total_symbols)
-    print(encoded_message)
-    print('average character size encoded: {} bits'.format(len(encoded_message) / total_symbols))
-    decoded_message = coding.decode(encoded_message, total_symbols)
-    print(decoded_message)
+    with open('extracted.txt', 'r') as rf:
+        while True:
+            text = rf.read(300)
+            if not text:
+                break
+            dictionary = get_letter_dictionary(text)
+            total_symbols = len(text)
+            coding = ArithmeticCoding()
+            coding.calc_intervals(dictionary, total_symbols)
+            encoded_message = coding.encode(text, total_symbols)
+            print(encoded_message)
+            print('average character size encoded: {} bits'.format(len(encoded_message) / total_symbols))
+            decoded_message = coding.decode(encoded_message, total_symbols)
+            print(decoded_message)
 
 
 if __name__ == "__main__":

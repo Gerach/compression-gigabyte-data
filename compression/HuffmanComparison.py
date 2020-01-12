@@ -3,7 +3,6 @@
 import operator
 
 from Huffman import Huffman
-from ExtractFromPdf import ExtractFromPdf
 
 import time
 
