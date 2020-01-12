@@ -24,7 +24,7 @@ class HugeFileGenerator:
             self.words.append(str.strip(word, '"'))
             self.weights.append(int(freq) / total_freq)
 
-    def get_random_word(self, whatever):
+    def get_random_word(self, _):
         random_separator = random.randint(1, 1000)
         if random_separator < 5:
             return random.choices(self.words, self.weights)[0] + '.\n'\
