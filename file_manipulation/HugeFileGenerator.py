@@ -54,7 +54,11 @@ class HugeFileGenerator:
 
 def main():
     generator = HugeFileGenerator()
-    generator.generate_file('random.txt', 0.01)
+    file_name = input('Input file name: ')
+    if not file_name:
+        raise Exception('File name not given')
+    file_size = float(input('Input file size in megabytes: '))
+    generator.generate_file(file_name, file_size)
 
 
 if __name__ == "__main__":
